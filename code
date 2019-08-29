@@ -1,0 +1,222 @@
+#include<stdio.h>
+#include<string.h>
+#include<stdlib.h>
+typedef struct node{
+   int occ;
+   int c;
+   struct node* left;
+   struct node* right;
+} Node;
+typedef struct priority_queue
+{
+  Node** hp;
+  int size;
+  int mx;
+} priority_queue;
+void create_priority_queue(priority_queue*,int);
+void inorder(Node*);
+void display_priority_queue( priority_queue );
+void swap(Node** n1,Node** n2);
+void insert(priority_queue* h,Node* key);
+Node* createnode(int o,int ch);
+Node* dequeue(priority_queue *p);
+void heapify(priority_queue *p,int i);
+Node* buildtree(priority_queue *p);
+void generate_code(Node* root,char** code,char* temp,int i);
+int main()
+{
+   FILE *fp;
+   char file[10000];
+   char ch;
+   int freq[256]={0};
+   int n=0;
+   Node* temp;
+   fp=fopen("sam.txt","r");
+   if(fp==NULL)
+   {
+      printf("File. Not found\n");
+      exit(1);
+   }
+   ch =fgetc(fp);
+   while(ch!=EOF)
+   {
+     freq[ch]++;
+     ch=fgetc(fp);
+   }
+   printf("CHARACTER  FREQ\n");
+   for(int i=0;i<256;i++)
+    if(freq[i]!=0&&i!=10)
+     {
+       printf("%d \t %d\n",i,freq[i]);
+       n++;
+     }
+   priority_queue pq;
+   create_priority_queue(&pq,n);
+   for(int i=0;i<256;i++)
+     if(freq[i]!=0&&i!=10)
+     {
+       temp=createnode(freq[i],i);
+       insert(&pq,temp);
+     }
+   display_priority_queue(pq);
+   Node* root=buildtree(&pq);
+   fclose(fp);
+   //generating code
+   char te[300];
+   char** code;
+   code=(char**)malloc(sizeof(char*)*256);
+   for(int i=0;i<256;i++)
+     code[i]=(char*)malloc(sizeof(char)*300); 
+   for(int i=0;i<256;i++)
+     for(int j=0;j<300;j++)
+        code[i][j]='\0';  
+   generate_code(root,code,te,0);
+   printf("code Table----------\n");
+   for(int i=0;i<256;i++)
+    if(code[i][0]!='\0')
+      printf("%c  %s\n",i,code[i]);
+   FILE *nfp;
+   nfp=fopen("encoded.txt","w");
+   fp=fopen("sam.txt","r");
+   ch=fgetc(fp);
+   while(ch!=EOF)
+   {
+    fprintf(nfp,"%s",code[ch]);
+    ch=fgetc(fp);
+   }
+   fclose(fp);
+   fclose(nfp);
+   nfp=fopen("encoded.txt","r");
+   fp=fopen("decoded.txt","w");
+   ch=fgetc(nfp);
+   Node* pnode=root;
+   while(ch!=EOF)
+   {
+    if(ch=='1')
+      pnode=pnode->right; 
+    if(ch=='0')
+      pnode=pnode->left;
+    if(pnode->left==NULL&&pnode->right==NULL)
+     {
+       fprintf(fp,"%c",pnode->c);
+       pnode=root;
+     }   
+     ch=fgetc(nfp);
+  }  
+  return 0;
+}
+void create_priority_queue(priority_queue *p,int n)
+{
+   p->mx=n; 
+   p->hp=(Node**)malloc(sizeof(Node*)*(p->mx));
+   p->size=-1;      
+}
+void generate_code(Node* root,char** code,char* temp,int i)
+{
+     
+  if(root->left!=NULL)
+  {
+     temp[i]='0';
+     generate_code(root->left,code,temp,i+1);
+  }
+  if(root->right!=NULL)
+  {
+    temp[i]='1';
+    generate_code(root->right,code,temp,i+1);
+  }
+  if(root->left==NULL&&root->right==NULL)
+  {  
+    temp[i]='\0';
+    strcpy(code[root->c],temp);
+  }  
+}
+Node* buildtree(struct priority_queue *p)
+{
+  Node *new,*t1,*t2; 
+  while(p->size>0)
+  {
+    t1=dequeue(p);
+    t2=dequeue(p);
+    new=(Node*)malloc(sizeof(Node));
+    new->occ=t1->occ+t2->occ;
+    new->left=t1;
+    new->right=t2;
+    insert(p,new);
+  }
+  return dequeue(p);
+}
+void insert(struct priority_queue* h,Node* key)
+{
+  if(h->size >= h->mx-1)
+    {
+      printf("Heap Overflow!!!\n");
+            return;
+    }
+    h->hp[h->size+1]=key;
+    h->size++;
+    int i= h->size;
+    while(i>0 && h->hp[(i-1)/2]->occ > h->hp[i]->occ)
+    {
+           swap(&h->hp[(i-1)/2],&h->hp[i]);
+           i=(i-1)/2;       
+    }   
+}
+void swap(Node** n1,Node** n2)
+{
+     Node * temp = *n1;
+    *n1= *n2;
+    *n2 = temp;
+}
+Node* createnode(int o,int ch)
+{
+  Node* t=(Node*)malloc(sizeof(Node));
+  t->occ=o;
+  t->c=ch;
+  t->left=t->right=NULL;
+  return t;
+}
+void display_priority_queue(priority_queue a)
+{
+  for(int i=0;i<=a.size;i++)
+  {
+    printf("%c\t%d\n",a.hp[i]->c,a.hp[i]->occ);
+  }
+}
+Node* dequeue(struct priority_queue *p)
+{
+  if(p->size<0)
+  {
+    printf("Heap Underflow\n");  
+  }
+  Node* min=p->hp[0];
+  p->hp[0]=p->hp[p->size];
+  p->size--;
+  heapify(p,0);  
+  return min;  
+}
+void heapify(struct priority_queue *p,int i)
+{
+  int left=2*i+1;
+  int right=2*i+2;
+  int min=i;
+  if(left<=p->size && p->hp[min]->occ > p->hp[left]->occ)
+    min=left;
+  if(right<=p->size && p->hp[min]->occ > p->hp[right]->occ)
+    min=right;
+  if(min!=i)
+  {
+   swap(&p->hp[min],&p->hp[i]);
+   heapify(p,min);
+  }
+}
+void inorder(Node* root)
+{
+   
+ if(root==NULL)
+  return ;
+ printf("%d ",root->occ);
+ inorder(root->left);
+ inorder(root->right);
+ if(root->left==NULL&&root->right==NULL)
+   printf(" |%c %d |",root->c,root->occ);        
+}
